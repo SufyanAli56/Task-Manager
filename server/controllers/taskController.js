@@ -9,17 +9,17 @@ const handleError = (res, error, statusCode = 400) => {
   });
 };
 
+// ✅ GET all tasks (with optional project filter)
 export const getTasks = async (req, res) => {
   try {
-    // Add filtering by project if needed
     const query = req.query.projectId 
       ? { projectId: req.query.projectId }
       : {};
     
     const tasks = await Task.find(query)
       .sort({ createdAt: -1 }) // Newest first
-      .populate('projectId', 'name'); // Optional: populate project name
-    
+      .populate('projectId', 'name'); // Optional populate
+
     res.json({
       success: true,
       count: tasks.length,
@@ -30,14 +30,13 @@ export const getTasks = async (req, res) => {
   }
 };
 
+// ✅ CREATE task
 export const createTask = async (req, res) => {
   try {
-    // Validate required fields
     if (!req.body.title) {
       throw new Error("Title is required");
     }
 
-    // Create task with default values
     const taskData = {
       title: req.body.title,
       description: req.body.description || "",
@@ -57,6 +56,7 @@ export const createTask = async (req, res) => {
   }
 };
 
+// ✅ UPDATE task
 export const updateTask = async (req, res) => {
   try {
     const task = await Task.findByIdAndUpdate(
@@ -67,12 +67,10 @@ export const updateTask = async (req, res) => {
         status: req.body.status,
         projectId: req.body.projectId
       },
-      { new: true, runValidators: true } // Return updated doc and validate
+      { new: true, runValidators: true }
     );
 
-    if (!task) {
-      throw new Error("Task not found");
-    }
+    if (!task) throw new Error("Task not found");
 
     res.json({
       success: true,
@@ -83,13 +81,12 @@ export const updateTask = async (req, res) => {
   }
 };
 
+// ✅ DELETE task
 export const deleteTask = async (req, res) => {
   try {
     const task = await Task.findByIdAndDelete(req.params.id);
     
-    if (!task) {
-      throw new Error("Task not found");
-    }
+    if (!task) throw new Error("Task not found");
 
     res.json({
       success: true,
