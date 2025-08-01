@@ -1,820 +1,381 @@
-import { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../context/AuthContext";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-
-// MUI Imports
 import {
-  Box,
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemText,
-  Button,
+  Container,
   Typography,
-  Grid,
-  Paper,
-  ListItem,
-  CircularProgress,
   TextField,
-  Snackbar,
-  Alert,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
   Select,
   MenuItem,
-  FormControl,
-  InputLabel,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
+  Paper,
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  Switch,
+  FormControlLabel,
+  Snackbar,
+  Alert,
+  CircularProgress
 } from "@mui/material";
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Check as CheckIcon,
-  Close as CloseIcon,
   Add as AddIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Close as CloseIcon
 } from "@mui/icons-material";
 
-// API Configuration
-const API_BASE_URL = "http://localhost:5000/api"; // Adjust based on your backend URL
+const API_BASE_URL = "http://localhost:5000/api";
+
+const getTheme = (darkMode) =>
+  createTheme({
+    palette: {
+      mode: darkMode ? "dark" : "light",
+      primary: { main: darkMode ? "#90caf9" : "#1976d2" },
+      secondary: { main: darkMode ? "#f48fb1" : "#dc004e" },
+      background: {
+        default: darkMode ? "#121212" : "#f5f5f5",
+        paper: darkMode ? "#1e1e1e" : "#ffffff"
+      }
+    },
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+      h4: { fontWeight: 600 }
+    }
+  });
 
 export default function Dashboard() {
-  const { token, logout } = useContext(AuthContext);
-
-  // State management
-  const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [apiStatus, setApiStatus] = useState({
-    projects: { online: false, loading: true },
-    tasks: { online: false, loading: true },
-  });
-
-  const [tab, setTab] = useState(0); // 0 = Dashboard, 1 = Projects, 2 = Tasks
-
-  // Task management
-  const [newTask, setNewTask] = useState({ 
-    title: "", 
-    status: "pending",
-    projectId: "" 
-  });
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [editingTask, setEditingTask] = useState(null);
-  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-
-  // Project management
-  const [newProject, setNewProject] = useState({ name: "" });
-  const [editingProject, setEditingProject] = useState(null);
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
-
-  // UI state
+  const [darkMode, setDarkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
-    severity: "success",
+    severity: "success"
   });
-  const [confirmDialog, setConfirmDialog] = useState({
-    open: false,
-    title: "",
-    content: "",
-    onConfirm: () => {},
-  });
+  const token = localStorage.getItem("token");
 
-  const drawerWidth = 240;
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
-  // Verify API status
-  const checkApiStatus = async () => {
+  const fetchTasks = async () => {
+    setLoading(true);
     try {
-      const [projectsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/projects/health`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        // Assuming tasks health check is same as projects for this example
-      ]);
-
-      setApiStatus({
-        projects: { online: projectsRes.status === 200, loading: false },
-        tasks: { online: projectsRes.status === 200, loading: false },
+      const res = await axios.get(`${API_BASE_URL}/tasks`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
+      setTasks(res.data.data || res.data); // Handle both response formats
     } catch (err) {
-      setApiStatus({
-        projects: { online: false, loading: false },
-        tasks: { online: false, loading: false },
-      });
-      showSnackbar("Failed to connect to API services", "error");
-    }
-  };
-
-  // Fetch all data
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [projectsRes, tasksRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/projects`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${API_BASE_URL}/tasks`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-
-      setProjects(projectsRes.data || []);
-      setTasks(tasksRes.data || []);
-
-      // Set default project for new task if available
-      if (projectsRes.data?.length > 0) {
-        setNewTask(prev => ({ ...prev, projectId: projectsRes.data[0]._id }));
-      }
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      showSnackbar("Failed to fetch data", "error");
+      showError("Failed to fetch tasks");
+      console.error("Error fetching tasks:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (token) {
-      checkApiStatus();
-      fetchData();
-    }
-  }, [token]);
-
-  // Helper functions
-  const showSnackbar = (message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
+  const showError = (message) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: "error"
+    });
   };
 
-  const openConfirmDialog = (title, content, onConfirm) => {
-    setConfirmDialog({ open: true, title, content, onConfirm });
+  const showSuccess = (message) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: "success"
+    });
   };
 
-  // Task CRUD operations
   const handleAddTask = async () => {
-    if (!newTask.title.trim()) {
-      showSnackbar("Task title cannot be empty", "error");
+    if (!title.trim()) {
+      showError("Task title cannot be empty");
       return;
     }
-    
+
     try {
       const res = await axios.post(
         `${API_BASE_URL}/tasks`,
-        newTask,
+        { title: title.trim(), description: description.trim(), status: "pending" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setTasks((prev) => [...prev, res.data]);
-      setNewTask({ title: "", status: "pending", projectId: projects[0]?._id || "" });
-      showSnackbar("Task added successfully!");
+      
+      setTasks(prev => [...prev, res.data.data || res.data]);
+      setTitle("");
+      setDescription("");
+      showSuccess("Task added successfully");
     } catch (err) {
+      showError(err.response?.data?.error || "Failed to add task");
       console.error("Error adding task:", err);
-      showSnackbar("Failed to add task", "error");
     }
   };
 
-  const handleUpdateTask = async () => {
-    if (!editingTask?.title.trim()) {
-      showSnackbar("Task title cannot be empty", "error");
+  const handleUpdateTask = async (taskId) => {
+    if (!editTitle.trim()) {
+      showError("Task title cannot be empty");
       return;
     }
-    
+
     try {
       const res = await axios.put(
-        `${API_BASE_URL}/tasks/${editingTask._id}`,
-        editingTask,
+        `${API_BASE_URL}/tasks/${taskId}`,
+        { title: editTitle.trim(), description: editDescription.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setTasks(tasks.map(t => t._id === editingTask._id ? res.data : t));
+      
+      setTasks(prev => 
+        prev.map(task => task._id === taskId ? (res.data.data || res.data) : task)
+      );
       setEditingTask(null);
-      setTaskDialogOpen(false);
-      showSnackbar("Task updated successfully!");
+      showSuccess("Task updated successfully");
     } catch (err) {
+      showError(err.response?.data?.error || "Failed to update task");
       console.error("Error updating task:", err);
-      showSnackbar("Failed to update task", "error");
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     try {
-      await axios.delete(
-        `${API_BASE_URL}/tasks/${taskId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setTasks(tasks.filter(t => t._id !== taskId));
-      showSnackbar("Task deleted successfully!");
+      await axios.delete(`${API_BASE_URL}/tasks/${taskId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTasks(prev => prev.filter(task => task._id !== taskId));
+      showSuccess("Task deleted successfully");
     } catch (err) {
+      showError(err.response?.data?.error || "Failed to delete task");
       console.error("Error deleting task:", err);
-      showSnackbar("Failed to delete task", "error");
     }
   };
 
-  // Project CRUD operations
-  const handleAddProject = async () => {
-    if (!newProject.name.trim()) {
-      showSnackbar("Project name cannot be empty", "error");
-      return;
-    }
-    
-    try {
-      const res = await axios.post(
-        `${API_BASE_URL}/projects`,
-        newProject,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setProjects((prev) => [...prev, res.data]);
-      setNewProject({ name: "" });
-      showSnackbar("Project added successfully!");
-    } catch (err) {
-      console.error("Error adding project:", err);
-      showSnackbar("Failed to add project", "error");
-    }
-  };
-
-  const handleUpdateProject = async () => {
-    if (!editingProject?.name.trim()) {
-      showSnackbar("Project name cannot be empty", "error");
-      return;
-    }
-    
+  const handleStatusChange = async (taskId, newStatus) => {
     try {
       const res = await axios.put(
-        `${API_BASE_URL}/projects/${editingProject._id}`,
-        editingProject,
+        `${API_BASE_URL}/tasks/${taskId}`,
+        { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setProjects(projects.map(p => p._id === editingProject._id ? res.data : p));
-      setEditingProject(null);
-      setProjectDialogOpen(false);
-      showSnackbar("Project updated successfully!");
+      setTasks(prev => 
+        prev.map(task => task._id === taskId ? (res.data.data || res.data) : task)
+      );
     } catch (err) {
-      console.error("Error updating project:", err);
-      showSnackbar("Failed to update project", "error");
+      showError(err.response?.data?.error || "Failed to update status");
+      console.error("Error updating status:", err);
     }
   };
 
-  const handleDeleteProject = async (projectId) => {
-    try {
-      // First delete all tasks associated with this project
-      const projectTasks = tasks.filter(t => t.projectId === projectId);
-      await Promise.all(
-        projectTasks.map(task => 
-          axios.delete(`${API_BASE_URL}/tasks/${task._id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        )
-      );
-
-      // Then delete the project
-      await axios.delete(
-        `${API_BASE_URL}/projects/${projectId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setProjects(projects.filter(p => p._id !== projectId));
-      setTasks(tasks.filter(t => t.projectId !== projectId));
-      showSnackbar("Project and its tasks deleted successfully!");
-    } catch (err) {
-      console.error("Error deleting project:", err);
-      showSnackbar("Failed to delete project", "error");
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "success.main";
+      case "in-progress":
+        return "warning.main";
+      default:
+        return "text.primary";
     }
   };
 
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  // Data calculations
-  const totalProjects = projects.length;
-  const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-  const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const recentTasks = tasks.slice(-5).reverse();
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#f9fafb" }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            background: "linear-gradient(to bottom, #2563eb, #1e40af)",
-            color: "white",
-          },
-        }}
-      >
-        <Box
-          sx={{
-            p: 3,
-            fontWeight: "bold",
-            fontSize: 24,
-            borderBottom: "1px solid #3b82f6",
-          }}
-        >
-          Task Manager
-        </Box>
-
-        <List sx={{ flex: 1 }}>
-          {[
-            { text: "Dashboard", index: 0 },
-            { text: "Projects", index: 1 },
-            { text: "Tasks", index: 2 },
-          ].map((item) => (
-            <ListItemButton
-              key={item.text}
-              selected={tab === item.index}
-              onClick={() => setTab(item.index)}
-              sx={{
-                borderRadius: 1,
-                my: 0.5,
-                "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
-              }}
-            >
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          ))}
-        </List>
-
-        <Box sx={{ p: 2 }}>
-          <Typography variant="body2" color="text.secondary" mb={1}>
-            API Status:
-          </Typography>
-          <Typography variant="body2" color={apiStatus.projects.online ? "success.light" : "error.light"}>
-            • Projects: {apiStatus.projects.online ? "Online" : "Offline"}
-          </Typography>
-          <Typography variant="body2" color={apiStatus.tasks.online ? "success.light" : "error.light"}>
-            • Tasks: {apiStatus.tasks.online ? "Online" : "Offline"}
-          </Typography>
-        </Box>
-
-        <Button
-          onClick={logout}
-          variant="contained"
-          color="error"
-          sx={{ m: 2 }}
-        >
-          Logout
-        </Button>
-      </Drawer>
-
-      {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 4, overflowY: "auto" }}>
-        {tab === 0 && (
-          <>
-            <Typography variant="h4" fontWeight="bold" color="text.primary" mb={4}>
-              Dashboard
+    <ThemeProvider theme={getTheme(darkMode)}>
+      <CssBaseline />
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Task Dashboard
             </Typography>
+            <FormControlLabel
+              control={<Switch checked={darkMode} onChange={() => setDarkMode(!darkMode)} />}
+              label="Dark Mode"
+            />
+          </div>
 
-            {/* API Status Indicator */}
-            {(!apiStatus.projects.online || !apiStatus.tasks.online) && (
-              <Alert severity="warning" sx={{ mb: 3 }}>
-                Some services are unavailable. Data may not be up to date.
-              </Alert>
-            )}
-
-            {/* Project Summary Cards */}
-            <Grid container spacing={3} mb={4}>
-              {[
-                { title: "Total Projects", value: totalProjects, color: "primary.main" },
-                { title: "Pending Tasks", value: pendingTasks, color: "warning.main" },
-                { title: "Completed Tasks", value: completedTasks, color: "success.main" },
-              ].map((card, index) => (
-                <Grid item xs={12} md={4} key={index}>
-                  <Paper
-                    sx={{
-                      p: 3,
-                      borderRadius: 3,
-                      boxShadow: 3,
-                      transition: "0.3s",
-                      "&:hover": { boxShadow: 6 },
-                    }}
-                  >
-                    <Typography variant="subtitle1" color="text.secondary" mb={1}>
-                      {card.title}
-                    </Typography>
-                    <Typography variant="h3" fontWeight="bold" color={card.color}>
-                      {card.value}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-
-            {/* Add Task */}
-            <Paper
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                boxShadow: 3,
-                mb: 4,
-                transition: "0.3s",
-                "&:hover": { boxShadow: 6 },
-              }}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+            <TextField
+              fullWidth
+              label="Task Title"
+              variant="outlined"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={loading}
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              variant="outlined"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={loading}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleAddTask}
+              sx={{ height: "56px" }}
+              disabled={loading || !title.trim()}
             >
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                <Typography variant="h6" fontWeight="bold" color="text.primary">
-                  Add New Task
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    setEditingTask(null);
-                    setTaskDialogOpen(true);
+              {loading ? <CircularProgress size={24} /> : "Add Task"}
+            </Button>
+          </div>
+        </Paper>
+
+        <Paper elevation={3} sx={{ p: 3 }}>
+          {loading && tasks.length === 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+              <CircularProgress />
+            </div>
+          ) : tasks.length === 0 ? (
+            <Typography variant="body1" align="center" sx={{ py: 2 }}>
+              No tasks found. Add a task to get started!
+            </Typography>
+          ) : (
+            <List>
+              {tasks.map((task) => (
+                <ListItem
+                  key={task._id}
+                  divider
+                  sx={{
+                    backgroundColor: editingTask === task._id ? "action.hover" : "inherit",
+                    transition: "background-color 0.3s ease"
                   }}
                 >
-                  Add Task
-                </Button>
-              </Box>
-            </Paper>
-
-            {/* Recent Tasks */}
-            <Paper
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                boxShadow: 3,
-                transition: "0.3s",
-                "&:hover": { boxShadow: 6 },
-              }}
-            >
-              <Typography variant="h6" fontWeight="bold" color="text.primary" mb={2}>
-                Recent Tasks
-              </Typography>
-
-              {recentTasks.length === 0 ? (
-                <Typography color="text.secondary">No tasks found</Typography>
-              ) : (
-                <List>
-                  {recentTasks.map((task) => (
-                    <ListItem
-                      key={task._id}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        py: 1.5,
-                        borderBottom: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <Box>
-                        <Typography>{task.title}</Typography>
-                        {task.projectId && (
-                          <Typography variant="caption" color="text.secondary">
-                            Project: {projects.find(p => p._id === task.projectId)?.name || "Unknown"}
+                  {editingTask === task._id ? (
+                    <>
+                      <TextField
+                        fullWidth
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        sx={{ mr: 2 }}
+                        disabled={loading}
+                      />
+                      <TextField
+                        fullWidth
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        sx={{ mr: 2 }}
+                        disabled={loading}
+                      />
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        onClick={() => handleUpdateTask(task._id)}
+                        startIcon={<CheckIcon />}
+                        disabled={loading || !editTitle.trim()}
+                      >
+                        {loading ? <CircularProgress size={20} /> : "Save"}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        size="small"
+                        onClick={() => setEditingTask(null)}
+                        startIcon={<CloseIcon />}
+                        sx={{ ml: 1 }}
+                        disabled={loading}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <ListItemText
+                        primary={
+                          <Typography
+                            variant="subtitle1"
+                            sx={{
+                              fontWeight: "medium",
+                              color: getStatusColor(task.status),
+                              textDecoration:
+                                task.status === "completed" ? "line-through" : "none"
+                            }}
+                          >
+                            {task.title}
                           </Typography>
-                        )}
-                      </Box>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Chip
-                          label={task.status}
-                          color={
-                            task.status === "completed"
-                              ? "success"
-                              : task.status === "pending"
-                              ? "warning"
-                              : "error"
-                          }
-                          size="small"
-                        />
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setEditingTask(task);
-                            setTaskDialogOpen(true);
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            openConfirmDialog(
-                              "Delete Task",
-                              "Are you sure you want to delete this task?",
-                              () => handleDeleteTask(task._id)
-                            );
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" color="error" />
-                        </IconButton>
-                      </Box>
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </Paper>
-          </>
-        )}
-
-        {tab === 1 && (
-          <Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-              <Typography variant="h4">Projects</Typography>
-              <Button 
-                variant="contained" 
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setEditingProject(null);
-                  setProjectDialogOpen(true);
-                }}
-              >
-                Add Project
-              </Button>
-            </Box>
-
-            {projects.length === 0 ? (
-              <Typography color="text.secondary">No projects found</Typography>
-            ) : (
-              <List sx={{ bgcolor: 'background.paper', borderRadius: 2 }}>
-                {projects.map((project) => (
-                  <ListItem
-                    key={project._id}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      py: 1.5,
-                      borderBottom: "1px solid #e5e7eb",
-                      '&:hover': { bgcolor: 'action.hover' }
-                    }}
-                    secondaryAction={
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        }
+                        secondary={
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontStyle: task.description ? "normal" : "italic" }}
+                          >
+                            {task.description || "No description"}
+                          </Typography>
+                        }
+                      />
+                      <Select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task._id, e.target.value)}
+                        size="small"
+                        sx={{ width: 150, mr: 2 }}
+                        disabled={loading}
+                      >
+                        <MenuItem value="pending">Pending</MenuItem>
+                        <MenuItem value="in-progress">In Progress</MenuItem>
+                        <MenuItem value="completed">Completed</MenuItem>
+                      </Select>
+                      <ListItemSecondaryAction>
                         <IconButton
                           edge="end"
                           onClick={() => {
-                            setEditingProject(project);
-                            setProjectDialogOpen(true);
+                            setEditingTask(task._id);
+                            setEditTitle(task.title);
+                            setEditDescription(task.description || "");
                           }}
+                          color="primary"
+                          disabled={loading}
                         >
                           <EditIcon />
                         </IconButton>
                         <IconButton
                           edge="end"
-                          onClick={() => {
-                            openConfirmDialog(
-                              "Delete Project",
-                              "This will delete the project and all its associated tasks. Are you sure?",
-                              () => handleDeleteProject(project._id)
-                            );
-                          }}
+                          onClick={() => handleDeleteTask(task._id)}
+                          color="error"
+                          disabled={loading}
                         >
-                          <DeleteIcon color="error" />
+                          <DeleteIcon />
                         </IconButton>
-                      </Box>
-                    }
-                  >
-                    <Box>
-                      <Typography>{project.name || "Unnamed Project"}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {tasks.filter(t => t.projectId === project._id).length} tasks
-                      </Typography>
-                    </Box>
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Box>
-        )}
-
-        {tab === 2 && (
-          <Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-              <Typography variant="h4">All Tasks</Typography>
-              <Button 
-                variant="contained" 
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setEditingTask(null);
-                  setTaskDialogOpen(true);
-                }}
-              >
-                Add Task
-              </Button>
-            </Box>
-
-            {tasks.length === 0 ? (
-              <Typography color="text.secondary">No tasks found</Typography>
-            ) : (
-              <List sx={{ bgcolor: 'background.paper', borderRadius: 2 }}>
-                {tasks.map((task) => (
-                  <ListItem
-                    key={task._id}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      py: 1.5,
-                      borderBottom: "1px solid #e5e7eb",
-                      '&:hover': { bgcolor: 'action.hover' }
-                    }}
-                    secondaryAction={
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <IconButton
-                          edge="end"
-                          onClick={() => {
-                            setEditingTask(task);
-                            setTaskDialogOpen(true);
-                          }}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          edge="end"
-                          onClick={() => {
-                            openConfirmDialog(
-                              "Delete Task",
-                              "Are you sure you want to delete this task?",
-                              () => handleDeleteTask(task._id)
-                            );
-                          }}
-                        >
-                          <DeleteIcon color="error" />
-                        </IconButton>
-                      </Box>
-                    }
-                  >
-                    <Box>
-                      <Typography>{task.title}</Typography>
-                      {task.projectId && (
-                        <Typography variant="caption" color="text.secondary">
-                          Project: {projects.find(p => p._id === task.projectId)?.name || "Unknown"}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Chip
-                      label={task.status}
-                      color={
-                        task.status === "completed"
-                          ? "success"
-                          : task.status === "pending"
-                          ? "warning"
-                          : "error"
-                      }
-                      size="small"
-                      sx={{ ml: 2 }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Box>
-        )}
-      </Box>
-
-      {/* Task Dialog */}
-      <Dialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)}>
-        <DialogTitle>{editingTask ? "Edit Task" : "Add New Task"}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Task Title"
-            fullWidth
-            variant="outlined"
-            value={editingTask?.title || newTask.title}
-            onChange={(e) => 
-              editingTask 
-                ? setEditingTask({...editingTask, title: e.target.value})
-                : setNewTask({...newTask, title: e.target.value})
-            }
-            sx={{ mb: 2 }}
-          />
-          
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={editingTask?.status || newTask.status}
-              label="Status"
-              onChange={(e) => 
-                editingTask 
-                  ? setEditingTask({...editingTask, status: e.target.value})
-                  : setNewTask({...newTask, status: e.target.value})
-              }
-            >
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="in-progress">In Progress</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
-            </Select>
-          </FormControl>
-          
-          {projects.length > 0 && (
-            <FormControl fullWidth>
-              <InputLabel>Project</InputLabel>
-              <Select
-                value={editingTask?.projectId || newTask.projectId}
-                label="Project"
-                onChange={(e) => 
-                  editingTask 
-                    ? setEditingTask({...editingTask, projectId: e.target.value})
-                    : setNewTask({...newTask, projectId: e.target.value})
-                }
-              >
-                {projects.map(project => (
-                  <MenuItem key={project._id} value={project._id}>
-                    {project.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                      </ListItemSecondaryAction>
+                    </>
+                  )}
+                </ListItem>
+              ))}
+            </List>
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTaskDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={editingTask ? handleUpdateTask : handleAddTask}
-            variant="contained"
-          >
-            {editingTask ? "Update Task" : "Add Task"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Paper>
 
-      {/* Project Dialog */}
-      <Dialog open={projectDialogOpen} onClose={() => setProjectDialogOpen(false)}>
-        <DialogTitle>{editingProject ? "Edit Project" : "Add New Project"}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Project Name"
-            fullWidth
-            variant="outlined"
-            value={editingProject?.name || newProject.name}
-            onChange={(e) => 
-              editingProject 
-                ? setEditingProject({...editingProject, name: e.target.value})
-                : setNewProject({...newProject, name: e.target.value})
-            }
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setProjectDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={editingProject ? handleUpdateProject : handleAddProject}
-            variant="contained"
-          >
-            {editingProject ? "Update Project" : "Add Project"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirm Dialog */}
-      <Dialog
-        open={confirmDialog.open}
-        onClose={() => setConfirmDialog({...confirmDialog, open: false})}
-      >
-        <DialogTitle>{confirmDialog.title}</DialogTitle>
-        <DialogContent>
-          <Typography>{confirmDialog.content}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialog({...confirmDialog, open: false})}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => {
-              confirmDialog.onConfirm();
-              setConfirmDialog({...confirmDialog, open: false});
-            }}
-            color="error"
-            variant="contained"
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </ThemeProvider>
   );
 }

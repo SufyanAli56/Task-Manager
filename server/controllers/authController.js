@@ -5,7 +5,7 @@ import { sendEmail } from "../utils/sendEmail.js";
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 
-// 1️⃣ Register User & Send OTP
+// Register + Send OTP
 export const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -17,16 +17,16 @@ export const registerUser = async (req, res) => {
 
     const user = await User.create({ name, email, password, otp });
 
-    // Send OTP to Gmail
     await sendEmail(email, "Verify your Task Manager Account", `Your OTP is: ${otp}`);
 
     res.status(201).json({ message: "User registered. OTP sent to Gmail." });
   } catch (error) {
+    console.error("❌ Register Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// 2️⃣ Verify OTP
+// Verify OTP
 export const verifyOTP = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -42,11 +42,12 @@ export const verifyOTP = async (req, res) => {
 
     res.json({ message: "Account verified successfully", token: generateToken(user._id) });
   } catch (error) {
+    console.error("❌ Verify OTP Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// 3️⃣ Login Only Verified Users
+// Login Verified Users Only
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -64,6 +65,7 @@ export const loginUser = async (req, res) => {
       res.status(401).json({ message: "Invalid password" });
     }
   } catch (error) {
+    console.error("❌ Login Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
