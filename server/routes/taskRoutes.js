@@ -1,10 +1,10 @@
 import express from "express";
 import { createTask, getTasks } from "../controllers/taskController.js";
-import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", protect, createTask);
-router.get("/:projectId", protect, getTasks);
+// Routes
+router.get("/", getTasks);
+router.post("/", createTask);
 
-export default router;
+export default router; // ✅ default export

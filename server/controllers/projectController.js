@@ -1,17 +1,24 @@
 import Project from "../models/Project.js";
 
-export const createProject = async (req, res) => {
-  const { name, description } = req.body;
-
+export const getProjects = async (req, res) => {
   try {
-    const project = await Project.create({ name, description, owner: req.user._id, members: [req.user._id] });
-    res.status(201).json(project);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const projects = await Project.find();
+    res.json(projects);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-export const getProjects = async (req, res) => {
-  const projects = await Project.find({ members: req.user._id });
-  res.json(projects);
+export const createProject = async (req, res) => {
+  try {
+    const project = new Project(req.body);
+    const saved = await project.save();
+    res.status(201).json(saved);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+export const healthCheck = (req, res) => {
+  res.status(200).json({ status: "Projects API online" });
 };
